@@ -245,7 +245,7 @@ impl Clocks {
         self.slck
     }
     /// returns the frequency of main clock
-    pub fn mainck(&self) -> Hertz {
+    pub fn main_clock_freq(&self) -> Hertz {
         self.main_clock_freq
     }
 
@@ -255,6 +255,9 @@ impl Clocks {
     }
 
     /// Returns the frequency of Master Clock
+    pub fn master_clock_freq(&self) -> Hertz {
+        self.master_clock_freq
+    }
     pub fn mck(&self) -> Hertz {
         self.master_clock_freq
     }
