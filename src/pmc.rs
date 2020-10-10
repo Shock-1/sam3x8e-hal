@@ -27,8 +27,8 @@ impl PmcExt for Pmc {
             pclk0: Pclk0 { _0: () },
             pclk1: Pclk1 { _0: () },
             cfgr: CFGR {
-                mck: None,
-                clksrc: ClockSource::SlowClock,
+                master_clock: None,
+                clock_source: ClockSource::SlowClock,
             },
         }
     }
@@ -91,22 +91,25 @@ pub enum ClockSource {
 
 /// Clock configuration
 pub struct CFGR {
-    /// Master Clock freequency
-    mck: Option<u32>,
+    /// Master Clock frequency
+    master_clock: Option<u32>,
     //TODO: Add support for programmable clocks
     /// Master Clock's source clock
-    clksrc: ClockSource,
+    clock_source: ClockSource,
 }
 
 impl CFGR {
+    pub fn new() -> CFGR {
+        return CFGR{master_clock: None, clock_source: ClockSource::SlowClock}
+    }
     ///Assign desired Master clock frequency
-    pub fn mck(mut self, freq: impl Into<Hertz>) -> Self {
-        self.mck = Some(freq.into().0);
+    pub fn master_clock(mut self, freq: impl Into<Hertz>) -> Self {
+        self.master_clock = Some(freq.into().0);
         self
     }
     ///Change clock source
-    pub fn clksrc(mut self, src: ClockSource) -> Self {
-        self.clksrc = src;
+    pub fn clock_source(mut self, src: ClockSource) -> Self {
+        self.clock_source = src;
         self
     }
 
@@ -115,7 +118,7 @@ impl CFGR {
         use sam3x8e::generic::Variant::Val;
 
         let pmc = unsafe { &(*PMC::ptr()) };
-        let mut mck = self.mck.unwrap_or(SLOW_CLOCK_FREQ);
+        let mut mck = self.master_clock.unwrap_or(SLOW_CLOCK_FREQ);
         let mut pres = 1u16;
         let main_clock_freq = match pmc.ckgr_mor.read().moscrcf().variant() {
             Val(pmc::ckgr_mor::MOSCRCF_A::_4_MHZ) => 4_000_000, //Hz
@@ -124,10 +127,10 @@ impl CFGR {
             _ => unreachable!(),
         };
 
-        match self.clksrc {
+        match self.clock_source {
             ClockSource::PllClock => {
                 let pllmul: u16 =
-                    2 * (self.mck.unwrap_or(main_clock_freq) / main_clock_freq) as u16;
+                    2 * (self.master_clock.unwrap_or(main_clock_freq) / main_clock_freq) as u16;
                 let pllmul = cmp::min(cmp::max(pllmul, 2), 2048);
 
                 //Actually safe as max value is guaranteed to be 2048
@@ -209,11 +212,11 @@ impl CFGR {
             }
         };
         Clocks {
-            clksrc: self.clksrc,
+            clock_source: self.clock_source,
             slck: SLOW_CLOCK_FREQ.hz(),
-            mainck: main_clock_freq.hz(),
+            main_clock_freq: main_clock_freq.hz(),
             pllack: (mck / main_clock_freq).hz(),
-            mck: mck.hz(),
+            master_clock_freq: mck.hz(),
             pres,
         }
     }
@@ -224,26 +227,26 @@ impl CFGR {
 /// Existence of this value indicates that the clock configuration cannot be changed
 #[derive(Copy, Clone)]
 pub struct Clocks {
-    clksrc: ClockSource,
+    clock_source: ClockSource,
     slck: Hertz,
-    mainck: Hertz,
+    main_clock_freq: Hertz,
     pllack: Hertz,
-    mck: Hertz,
+    master_clock_freq: Hertz,
     pres: u16,
 }
 
 impl Clocks {
     /// Returns the clock source of main clock
-    pub fn clksrc(&self) -> ClockSource {
-        self.clksrc
+    pub fn clock_source(&self) -> ClockSource {
+        self.clock_source
     }
     /// Returns the frequency of slow clock
     pub fn slck(&self) -> Hertz {
         self.slck
     }
     /// returns the frequency of main clock
-    pub fn mainck(&self) -> Hertz {
-        self.mainck
+    pub fn main_clock_freq(&self) -> Hertz {
+        self.main_clock_freq
     }
 
     /// Returns the frequency of PLLA clock
@@ -252,8 +255,11 @@ impl Clocks {
     }
 
     /// Returns the frequency of Master Clock
+    pub fn master_clock_freq(&self) -> Hertz {
+        self.master_clock_freq
+    }
     pub fn mck(&self) -> Hertz {
-        self.mck
+        self.master_clock_freq
     }
 
     /// Returns the value of prescaler in Master Clock controller

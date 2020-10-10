@@ -6,6 +6,7 @@ pub mod delay;
 pub mod gpio;
 pub mod pmc;
 pub mod time;
+pub mod pwm;
 
 #[cfg(test)]
 mod tests {
